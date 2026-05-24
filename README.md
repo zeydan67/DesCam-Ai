@@ -160,7 +160,7 @@ firebase deploy
 
 ## 📄 Lisensi
 
-Proyek ini bersifat **open-source** dan dibuat untuk keperluan kompetisi **Google Juara Vibe Coding 2026**.
+Proyek ini bersifat **open-source** dan dibuat untuk keperluan **edukasi penipuan/scamming**.
 Terimakasih Google sudah membantu sumber daya saya dalam pembuatan tools ini
 
 ---
