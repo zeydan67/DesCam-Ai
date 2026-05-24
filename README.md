@@ -12,7 +12,7 @@
 </p>
 
 <p align="center">
-  <em>Dibuat untuk kompetisi <strong>Google Juara Vibe Coding 2026</strong></em>
+  <em>Dibuat untuk <strong>melawan para penipuan dan scammer</strong></em>
 </p>
 
 <p align="center">
