@@ -173,5 +173,5 @@ Terimakasih Google sudah membantu sumber daya saya dalam pembuatan tools ini
 </p>
 
 <p align="center">
-  Dibuat dengan ❤️ untuk masyarakat Indonesia
+  Dibuat dengan ❤️ untuk masyarakat Indonesia dan semuanya 
 </p>
