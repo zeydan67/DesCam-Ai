@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:xml/xml.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -65,7 +66,9 @@ class TrendingThreatService {
         await prefs.setInt(_cacheTime, now);
         return fresh;
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[DesCam] Trending fetch failed, using fallback: $e');
+    }
 
     return _fallback;
   }
@@ -113,7 +116,8 @@ class TrendingThreatService {
 
       final body = resp.body;
       return _parseXml(body, feed);
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[DesCam] RSS feed fetch failed (${feed.source}): $e');
       return [];
     }
   }
@@ -162,7 +166,8 @@ class TrendingThreatService {
       }
 
       return result;
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[DesCam] RSS XML parse failed: $e');
       return [];
     }
   }
@@ -190,7 +195,10 @@ class TrendingThreatService {
       final text = found.innerText.trim();
       // Bersihkan CDATA
       return text.replaceAll('<![CDATA[', '').replaceAll(']]>', '').trim();
-    } catch (_) { return ''; }
+    } catch (e) {
+      debugPrint('[DesCam] RSS text extraction failed for <$tag>: $e');
+      return '';
+    }
   }
 
   String _stripHtml(String html) =>
@@ -264,7 +272,10 @@ class TrendingThreatService {
           articleUrl : j['article_url']  as String?,
         );
       }).toList();
-    } catch (_) { return []; }
+    } catch (e) {
+      debugPrint('[DesCam] Cache deserialization failed: $e');
+      return [];
+    }
   }
 
   List<Map<String, dynamic>> _toJson(List<TrendingThreat> list) =>

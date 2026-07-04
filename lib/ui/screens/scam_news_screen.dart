@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
@@ -75,7 +76,10 @@ class _ScamNewsScreenState extends State<ScamNewsScreen> {
         if (resp.statusCode == 200) {
           all.addAll(_parseRss(resp.body));
         }
-      } catch (_) { continue; }
+      } catch (e) {
+        debugPrint('[DesCam] News RSS feed fetch failed ($url): $e');
+        continue;
+      }
     }
     // Sort terbaru dulu, dedup
     final seen = <String>{};
@@ -113,7 +117,9 @@ class _ScamNewsScreenState extends State<ScamNewsScreen> {
         ));
         if (result.length >= 15) break;
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[DesCam] News RSS parse failed: $e');
+    }
     return result;
   }
 
@@ -204,7 +210,10 @@ class _ScamNewsScreenState extends State<ScamNewsScreen> {
     try {
       return el.findElements(tag).firstOrNull?.innerText.trim()
         .replaceAll('<![CDATA[','').replaceAll(']]>','').trim() ?? '';
-    } catch (_) { return ''; }
+    } catch (e) {
+      debugPrint('[DesCam] News text extraction failed for <$tag>: $e');
+      return '';
+    }
   }
 
   String _clean(String s) =>
@@ -220,8 +229,12 @@ class _ScamNewsScreenState extends State<ScamNewsScreen> {
   }
 
   DateTime _parseDate(String s) {
-    try { return DateTime.parse(s); } catch (_) {}
-    try { return HttpDate.parse(s); } catch (_) {}
+    try { return DateTime.parse(s); } catch (_) {
+      // Not ISO 8601, try RFC 822 below
+    }
+    try { return HttpDate.parse(s); } catch (e) {
+      debugPrint('[DesCam] Date parse failed for "$s": $e');
+    }
     return DateTime.now();
   }
 
@@ -436,7 +449,8 @@ class HttpDate {
       final time  = parts[4].split(':');
       return DateTime.utc(year, month, day,
         int.parse(time[0]), int.parse(time[1]));
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[DesCam] HttpDate parse failed for "$s": $e');
       return DateTime.now();
     }
   }

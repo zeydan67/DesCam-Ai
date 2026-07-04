@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import '../core/services/analysis_service.dart';
+import '../core/services/gemini_service.dart';
 import '../core/services/trending_service.dart';
 import '../core/models/analysis_result.dart';
 import '../core/models/trending_threat.dart';
@@ -39,13 +40,10 @@ class AnalysisProvider extends ChangeNotifier {
     if (_trendingLoading && !force) return;
     _trendingLoading = true;
 
-    // Ambil apiKey dari service (cast ke GeminiAnalysisService jika ada)
     String apiKey = '';
-    try {
-      // Gunakan reflection-safe approach
-      final dynamic dynSvc = _svc;
-      apiKey = dynSvc.apiKey as String? ?? '';
-    } catch (_) {}
+    if (_svc is GeminiAnalysisService) {
+      apiKey = (_svc as GeminiAnalysisService).apiKey;
+    }
 
     final service = TrendingThreatService(apiKey: apiKey);
     try {
@@ -53,9 +51,9 @@ class AnalysisProvider extends ChangeNotifier {
       _threats        = result;
       _trendingLoading = false;
       notifyListeners();
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[DesCam] Trending load failed: $e');
       _trendingLoading = false;
-      // Tetap gunakan data yang ada (fallback dari service)
       if (_threats.isEmpty) {
         _threats = TrendingThreatService.getFallback();
       }

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:crypto/crypto.dart';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 enum UrlSafetyLevel { safe, suspicious, danger, unknown }
@@ -43,14 +44,18 @@ class SafetyPreChecker {
       try {
         final vtResult = await _checkVirusTotalUrl(url);
         if (vtResult.level != UrlSafetyLevel.unknown) return vtResult;
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('[DesCam] VirusTotal URL check failed: $e');
+      }
     }
 
     // 2. PhishTank (gratis, tanpa API key)
     try {
       final ptResult = await _checkPhishTank(url);
       if (ptResult.level != UrlSafetyLevel.unknown) return ptResult;
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[DesCam] PhishTank check failed: $e');
+    }
 
     return UrlSafetyResult.unknown;
   }
@@ -92,7 +97,8 @@ class SafetyPreChecker {
           'VirusTotal File Check: $bad/$total engine mendeteksi file ini sebagai '
           '${bad >= 3 ? "BERBAHAYA" : bad >= 1 ? "mencurigakan" : "AMAN"}.',
       );
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[DesCam] VirusTotal file check failed: $e');
       return UrlSafetyResult.unknown;
     }
   }

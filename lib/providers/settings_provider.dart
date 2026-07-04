@@ -22,31 +22,47 @@ class SettingsProvider extends ChangeNotifier {
   }
 
   Future<void> loadSettings() async {
-    final prefs = await SharedPreferences.getInstance();
-    _useDefault = prefs.getBool(_useDefaultKey) ?? true;
-    _customKey  = prefs.getString(_customApiKey) ?? '';
-    _vtKey      = prefs.getString('vt_api_key') ?? '';
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      _useDefault = prefs.getBool(_useDefaultKey) ?? true;
+      _customKey  = prefs.getString(_customApiKey) ?? '';
+      _vtKey      = prefs.getString('vt_api_key') ?? '';
+    } catch (e) {
+      debugPrint('[DesCam] Failed to load settings: $e');
+    }
     notifyListeners();
   }
 
   Future<void> setUseDefault(bool val) async {
     _useDefault = val;
     notifyListeners();
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_useDefaultKey, val);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_useDefaultKey, val);
+    } catch (e) {
+      debugPrint('[DesCam] Failed to persist useDefault setting: $e');
+    }
   }
 
   Future<void> setCustomKey(String val) async {
     _customKey = val;
     notifyListeners();
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_customApiKey, val);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_customApiKey, val);
+    } catch (e) {
+      debugPrint('[DesCam] Failed to persist custom API key: $e');
+    }
   }
 
   Future<void> setVtKey(String val) async {
     _vtKey = val;
     notifyListeners();
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('vt_api_key', val);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('vt_api_key', val);
+    } catch (e) {
+      debugPrint('[DesCam] Failed to persist VirusTotal key: $e');
+    }
   }
 }

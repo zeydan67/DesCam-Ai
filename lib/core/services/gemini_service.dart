@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:archive/archive.dart';
 import 'package:xml/xml.dart';
@@ -119,7 +120,9 @@ class GeminiAnalysisService implements AnalysisService {
               '${vtResult.summary}\n'
               'Gunakan data ini sebagai sinyal utama.\n';
         }
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('[DesCam] URL pre-check failed: $e');
+      }
     }
 
     // 2. Check File Hash (VirusTotal)
@@ -157,7 +160,9 @@ class GeminiAnalysisService implements AnalysisService {
               '${vtFileResult.summary}\n'
               'Jika terdeteksi berbahaya oleh banyak engine, nyatakan sebagai DANGER.\n';
         }
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('[DesCam] File pre-check failed: $e');
+      }
     }
 
     // ── Extraction: Dukung semua tipe file (Docx, Text, App/Software, dll) ──
@@ -186,7 +191,10 @@ class GeminiAnalysisService implements AnalysisService {
               "Nama File: $fName\n"
               "Ukuran: ${sizeKb} KB\n"
               "Isi:\n$textContent";
-        } catch (_) {}
+        } catch (e) {
+          debugPrint('[DesCam] Text file decode failed: $e');
+          extractedText = "[Gagal membaca file teks: $e]";
+        }
       } else {
         // Binary/App/Software file (misalnya .exe, .apk, .msi, .zip)
         extractedText = "[KONTEN APLIKASI / FILE SOFTWARE / BINER]\n"
@@ -279,14 +287,23 @@ FORMAT — kembalikan HANYA JSON valid:
                 ));
               }
             });
-          } catch (_) {}
+          } catch (e) {
+            debugPrint('[DesCam] Failed to parse grounding metadata: $e');
+          }
 
           Map<String, dynamic> jsonMap;
           try {
             jsonMap = jsonDecode(resText);
-          } catch (_) {
-            jsonMap = jsonDecode(
-              resText.replaceAll('```json','').replaceAll('```','').trim());
+          } catch (e) {
+            debugPrint('[DesCam] Direct JSON parse failed, trying markdown cleanup: $e');
+            try {
+              jsonMap = jsonDecode(
+                resText.replaceAll('```json','').replaceAll('```','').trim());
+            } catch (e2) {
+              debugPrint('[DesCam] JSON parse failed after cleanup: $e2');
+              throw FormatException(
+                'Gemini returned invalid JSON. Raw response: ${resText.substring(0, resText.length.clamp(0, 200))}');
+            }
           }
 
           final result = AnalysisResult.fromJson(jsonMap, sourceLinks: sourceLinks);
