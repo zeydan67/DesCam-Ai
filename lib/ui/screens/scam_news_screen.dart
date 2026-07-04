@@ -1,10 +1,11 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 import 'package:xml/xml.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/constants/rss_constants.dart';
+import '../../core/utils/rss_helpers.dart';
 
 class ScamNewsScreen extends StatefulWidget {
   const ScamNewsScreen({super.key});
@@ -17,32 +18,7 @@ class _ScamNewsScreenState extends State<ScamNewsScreen> {
   bool _loading = true;
   String? _error;
 
-  // ── RSS Feeds ─────────────────────────────────────────────────────────────
-  static const _feeds = [
-    'https://news.google.com/rss/search?q=penipuan+online+OR+hacker+OR+malware&hl=id&gl=ID&ceid=ID:id',
-    'https://feeds.feedburner.com/TheHackersNews',
-  ];
 
-  static const _backupImages = [
-    'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=400&h=200&fit=crop',
-    'https://images.unsplash.com/photo-1614064641938-3bbee52942c7?w=400&h=200&fit=crop',
-    'https://images.unsplash.com/photo-1563986768494-4dee2763ff3f?w=400&h=200&fit=crop',
-    'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=400&h=200&fit=crop',
-    'https://images.unsplash.com/photo-1677442135703-1787eea5ce01?w=400&h=200&fit=crop',
-    'https://images.unsplash.com/photo-1595079676601-f1adf5be5dee?w=400&h=200&fit=crop',
-  ];
-
-  static const _scamKw = [
-    'penipuan','scam','hoaks','hoax','phishing','malware','hack','siber',
-    'fraud','bodong','palsu','modus','waspada','rekening','korban','ojk',
-    'bareskrim','deepfake','ransomware','trojan','virus','peretasan',
-    'skimming','carding','smishing','vishing','investasi ilegal','pinjol',
-    'social engineering','data breach','kebocoran','akun diretas',
-    // global
-    'scam','phishing','malware','ransomware','hack','cyber','fraud',
-    'breach','stolen','compromised','trojan','spyware','identity theft',
-    'deepfake','spoofing','smishing','vishing','cryptocurrency scam',
-  ];
 
   @override
   void initState() {
@@ -53,7 +29,7 @@ class _ScamNewsScreenState extends State<ScamNewsScreen> {
   Future<void> _fetchAll() async {
     setState(() { _loading = true; _error = null; });
     try {
-      final result = await _fetchFeeds(_feeds);
+      final result = await _fetchFeeds(RssConstants.feedUrls);
       if (mounted) {
         setState(() {
           _news = result.isNotEmpty ? result : _mockNews;
@@ -69,7 +45,7 @@ class _ScamNewsScreenState extends State<ScamNewsScreen> {
     final all = <_NewsItem>[];
     for (final url in feeds) {
       try {
-        final proxyUrl = 'https://api.allorigins.win/raw?url=${Uri.encodeComponent(url)}';
+        final proxyUrl = RssHelpers.proxiedUrl(url);
         final resp = await http.get(Uri.parse(proxyUrl))
           .timeout(const Duration(seconds: 15));
         if (resp.statusCode == 200) {
@@ -77,14 +53,8 @@ class _ScamNewsScreenState extends State<ScamNewsScreen> {
         }
       } catch (_) { continue; }
     }
-    // Sort terbaru dulu, dedup
-    final seen = <String>{};
-    final dedup = <_NewsItem>[];
-    for (final item in all) {
-      final key = item.title.substring(0, item.title.length.clamp(0, 25));
-      if (!seen.contains(key)) { seen.add(key); dedup.add(item); }
-    }
-    return dedup.take(30).toList();
+    return RssHelpers.deduplicateByTitle(
+      all, (item) => item.title, prefixLength: 25, maxItems: 30);
   }
 
   List<_NewsItem> _parseRss(String xml) {
@@ -93,16 +63,17 @@ class _ScamNewsScreenState extends State<ScamNewsScreen> {
       final doc   = XmlDocument.parse(xml);
       final items = doc.findAllElements('item');
       for (final item in items) {
-        final title = _clean(_txt(item, 'title'));
-        final link  = _txt(item, 'link').trim();
-        final desc  = _stripHtml(_clean(_txt(item, 'description')));
+        final title = RssHelpers.extractText(item, 'title');
+        final link  = RssHelpers.extractText(item, 'link').trim();
+        final desc  = RssHelpers.stripHtml(RssHelpers.extractText(item, 'description'));
         if (title.isEmpty || link.isEmpty) continue;
         
         // Removed keyword filtering to ensure Indonesian tech news always shows up.
         // It's better to show general tech news than an empty screen.
 
-        final image = _findImage(item);
-        final date  = _parseDate(_txt(item, 'pubDate'));
+        final image = RssHelpers.fallbackImageForTitle(title);
+        final date  = RssHelpers.parseRssDate(
+            RssHelpers.extractText(item, 'pubDate'));
         result.add(_NewsItem(
           title: title,
           description: desc.length > 120 ? '${desc.substring(0,118)}…' : desc,
@@ -200,30 +171,7 @@ class _ScamNewsScreenState extends State<ScamNewsScreen> {
     ),
   ];
 
-  String _txt(XmlElement el, String tag) {
-    try {
-      return el.findElements(tag).firstOrNull?.innerText.trim()
-        .replaceAll('<![CDATA[','').replaceAll(']]>','').trim() ?? '';
-    } catch (_) { return ''; }
-  }
 
-  String _clean(String s) =>
-      s.replaceAll('<![CDATA[','').replaceAll(']]>','').trim();
-
-  String _stripHtml(String html) =>
-      html.replaceAll(RegExp(r'<[^>]*>'),'').replaceAll(RegExp(r'\s+'),' ').trim();
-
-  String? _findImage(XmlElement item) {
-    // Return a highly reliable fallback image unconditionally to prevent CORS errors on Flutter Web.
-    final hash = item.findElements('title').firstOrNull?.innerText.hashCode.abs() ?? 0;
-    return _backupImages[hash % _backupImages.length];
-  }
-
-  DateTime _parseDate(String s) {
-    try { return DateTime.parse(s); } catch (_) {}
-    try { return HttpDate.parse(s); } catch (_) {}
-    return DateTime.now();
-  }
 
   @override
   Widget build(BuildContext ctx) => Scaffold(
@@ -422,22 +370,4 @@ class _NewsItem {
   });
 }
 
-// HttpDate parse helper
-class HttpDate {
-  static DateTime parse(String s) {
-    // RFC 822 / RFC 1123 format
-    final months = {'Jan':1,'Feb':2,'Mar':3,'Apr':4,'May':5,'Jun':6,
-      'Jul':7,'Aug':8,'Sep':9,'Oct':10,'Nov':11,'Dec':12};
-    final parts = s.trim().split(RegExp(r'[\s,]+'));
-    try {
-      final day   = int.parse(parts[1]);
-      final month = months[parts[2]] ?? 1;
-      final year  = int.parse(parts[3]);
-      final time  = parts[4].split(':');
-      return DateTime.utc(year, month, day,
-        int.parse(time[0]), int.parse(time[1]));
-    } catch (_) {
-      return DateTime.now();
-    }
-  }
-}
+

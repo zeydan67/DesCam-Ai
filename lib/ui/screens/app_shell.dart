@@ -2,9 +2,11 @@ import 'dart:ui';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:google_fonts/google_fonts.dart';
 import '../../core/constants/app_colors.dart';
+import '../widgets/glow_orb.dart';
+import '../widgets/grid_painter.dart';
+import '../widgets/web_video_background.dart';
 import 'home_screen.dart';
 import 'scam_news_screen.dart';
 import 'about_screen.dart';
@@ -205,9 +207,7 @@ class _AnimatedBg extends StatelessWidget {
     builder: (_, __) {
       final t = anim.value;
       return Stack(fit: StackFit.expand, children: [
-        // Video background
-        const _WebVideoBackground(),
-        // Dark overlay for liquid glass effect
+        const WebVideoBackground(),
         Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
@@ -223,58 +223,15 @@ class _AnimatedBg extends StatelessWidget {
         Positioned(
           left: -60 + 50 * math.sin(t * math.pi),
           top:  -40 + 40 * math.cos(t * math.pi * 0.7),
-          child: _orb(280, AppColors.vermillion, 0.07)),
+          child: GlowOrb(size: 280, color: AppColors.vermillion, opacity: 0.07)),
         Positioned(
           right: -50 + 40 * math.cos(t * math.pi * 0.8),
           bottom: 60 + 50 * math.sin(t * math.pi * 0.6),
-          child: _orb(200, AppColors.gold, 0.05)),
-        CustomPaint(painter: _GridPainter()),
+          child: GlowOrb(size: 200, color: AppColors.gold, opacity: 0.05)),
+        CustomPaint(painter: GridPatternPainter()),
       ]);
     },
   );
-
-  Widget _orb(double s, Color c, double o) => Container(
-    width: s, height: s,
-    decoration: BoxDecoration(
-      shape: BoxShape.circle,
-      gradient: RadialGradient(colors: [
-        c.withOpacity(o), c.withOpacity(o*0.3), Colors.transparent,
-      ], stops: const [0,0.5,1]),
-    ),
-  );
-}
-
-class _GridPainter extends CustomPainter {
-  @override
-  void paint(Canvas c, Size s) {
-    final p = Paint()..color = const Color(0x06FAF8F5)..strokeWidth = 0.5;
-    for (double x = 0; x < s.width;  x += 44) c.drawLine(Offset(x,0), Offset(x,s.height), p);
-    for (double y = 0; y < s.height; y += 44) c.drawLine(Offset(0,y), Offset(s.width,y), p);
-  }
-  @override bool shouldRepaint(_) => false;
-}
-
-// ── Flutter Web video via HtmlElementView ─────────────────────────────────
-class _WebVideoBackground extends StatefulWidget {
-  const _WebVideoBackground();
-  @override
-  State<_WebVideoBackground> createState() => _WebVideoBackgroundState();
-}
-
-class _WebVideoBackgroundState extends State<_WebVideoBackground> {
-  bool _error = false;
-  @override
-  Widget build(BuildContext ctx) {
-    if (_error) return Container(color: AppColors.deepNavy);
-    try {
-      if (kIsWeb) {
-        return HtmlElementView(viewType: 'waspada-bg-video');
-      }
-    } catch (_) {
-      setState(() => _error = true);
-    }
-    return Container(color: AppColors.deepNavy);
-  }
 }
 
 // ── Hamburger button ─────────────────────────────────────────────────────────

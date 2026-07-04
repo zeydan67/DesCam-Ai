@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/constants/app_colors.dart';
+import '../widgets/glow_orb.dart';
 
 class AboutScreen extends StatefulWidget {
   const AboutScreen({super.key});
@@ -38,11 +39,11 @@ class _AboutScreenState extends State<AboutScreen>
           Positioned(
             left: -80 + 50 * math.sin(_anim.value * math.pi),
             top:  100 + 40 * math.cos(_anim.value * math.pi),
-            child: _orb(300, AppColors.vermillion, 0.05)),
+            child: GlowOrb(size: 300, color: AppColors.vermillion, opacity: 0.05)),
           Positioned(
             right: -60 + 40 * math.cos(_anim.value * math.pi * 0.7),
             bottom: 80 + 50 * math.sin(_anim.value * math.pi * 0.5),
-            child: _orb(240, AppColors.gold, 0.04)),
+            child: GlowOrb(size: 240, color: AppColors.gold, opacity: 0.04)),
         ]),
       ),
       SafeArea(child: CustomScrollView(
@@ -227,16 +228,6 @@ class _AboutScreenState extends State<AboutScreen>
         ],
       )),
     ]),
-  );
-
-  Widget _orb(double size, Color c, double opacity) => Container(
-    width: size, height: size,
-    decoration: BoxDecoration(
-      shape: BoxShape.circle,
-      gradient: RadialGradient(colors: [
-        c.withOpacity(opacity), c.withOpacity(opacity * 0.3), Colors.transparent,
-      ], stops: const [0,0.5,1]),
-    ),
   );
 
   Widget _glassBox({required Widget child}) => Container(

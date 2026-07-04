@@ -2,7 +2,9 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:xml/xml.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../constants/rss_constants.dart';
 import '../models/trending_threat.dart';
+import '../utils/rss_helpers.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // RSS-based Trending Service
@@ -27,18 +29,6 @@ class TrendingThreatService {
       source  : 'The Hacker News',
       domain  : 'thehackernews.com',
     ),
-  ];
-
-  // ── Keyword filter: ambil artikel yang relevan keamanan siber / penipuan ──
-  static const _filterKw = [
-    'penipuan','scam','hoaks','hoax','phishing','malware','ransomware',
-    'hack','hacker','siber','keamanan','fraud','bodong','palsu','modus',
-    'waspada','rekening','korban','ojk','bareskrim','kominfo','polri',
-    'pinjol','investasi ilegal','apk','virus','trojan','spyware',
-    'kebocoran data','data breach','peretasan','skimming','carding',
-    'social engineering','smishing','vishing','deepfake','kripto palsu',
-    'arisan online','money game','penipuan online','akun palsu',
-    'link berbahaya','qr palsu','whatsapp hack','akun diretas',
   ];
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -87,24 +77,14 @@ class TrendingThreatService {
       return b.reportCount.compareTo(a.reportCount);
     });
 
-    // Deduplikasi berdasarkan kesamaan judul
-    final seen  = <String>{};
-    final dedup = <TrendingThreat>[];
-    for (final t in all) {
-      final key = t.title.toLowerCase().substring(0, t.title.length.clamp(0, 20));
-      if (!seen.contains(key)) {
-        seen.add(key);
-        dedup.add(t);
-      }
-    }
-
-    return dedup.take(6).toList();
+    return RssHelpers.deduplicateByTitle(
+      all, (t) => t.title, maxItems: 6);
   }
 
   // ── Parse satu RSS feed ───────────────────────────────────────────────────
   Future<List<TrendingThreat>> _fetchFeed(_RssFeed feed) async {
     try {
-      final proxyUrl = 'https://api.allorigins.win/raw?url=${Uri.encodeComponent(feed.url)}';
+      final proxyUrl = RssHelpers.proxiedUrl(feed.url);
       final resp = await http
           .get(Uri.parse(proxyUrl))
           .timeout(const Duration(seconds: 15));
@@ -127,27 +107,23 @@ class TrendingThreatService {
 
       for (final item in items) {
         // ── Ambil field dasar ──────────────────────────────────
-        final title = _text(item, 'title');
-        final link  = _text(item, 'link')
-            .replaceAll(RegExp(r'^<!\[CDATA\[|\]\]>$'), '').trim();
-        final desc  = _stripHtml(
-            _text(item, 'description')
-                .replaceAll(RegExp(r'<!\[CDATA\[|\]\]>'), '').trim()
-        );
-        final pubDate = _text(item, 'pubDate');
+        final title = RssHelpers.extractText(item, 'title');
+        final link  = RssHelpers.extractText(item, 'link').trim();
+        final desc  = RssHelpers.stripHtml(
+            RssHelpers.extractText(item, 'description'));
 
         if (title.isEmpty || link.isEmpty) continue;
 
         // ── Filter keyword ─────────────────────────────────────
         final combined = (title + ' ' + desc).toLowerCase();
-        if (!_filterKw.any((k) => combined.contains(k))) continue;
+        if (!RssConstants.scamKeywords.any((k) => combined.contains(k))) continue;
 
         // ── Cari thumbnail / gambar artikel ───────────────────
-        final imageUrl = _extractImage(item, desc);
+        final imageUrl = RssHelpers.fallbackImageForTitle(title);
 
         result.add(TrendingThreat(
           id         : link.hashCode.abs().toString(),
-          title      : _cleanTitle(title),
+          title      : RssHelpers.cleanCdata(title),
           description: desc.length > 130
               ? '${desc.substring(0, 128)}…'
               : desc,
@@ -166,40 +142,6 @@ class TrendingThreatService {
       return [];
     }
   }
-
-  // ── Ekstrak gambar dari berbagai format RSS ───────────────────────────────
-  String? _extractImage(XmlElement item, String cleanDesc) {
-    // Return a highly reliable fallback image unconditionally to prevent CORS errors on Flutter Web.
-    final fallbackImages = [
-      'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=400&h=200&fit=crop',
-      'https://images.unsplash.com/photo-1614064641938-3bbee52942c7?w=400&h=200&fit=crop',
-      'https://images.unsplash.com/photo-1563986768494-4dee2763ff3f?w=400&h=200&fit=crop',
-      'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=400&h=200&fit=crop',
-      'https://images.unsplash.com/photo-1677442135703-1787eea5ce01?w=400&h=200&fit=crop',
-      'https://images.unsplash.com/photo-1595079676601-f1adf5be5dee?w=400&h=200&fit=crop',
-    ];
-    final hash = item.findElements('title').firstOrNull?.innerText.hashCode.abs() ?? 0;
-    return fallbackImages[hash % fallbackImages.length];
-  }
-
-  // ── Helpers ───────────────────────────────────────────────────────────────
-  String _text(XmlElement el, String tag) {
-    try {
-      final found = el.findElements(tag).firstOrNull;
-      if (found == null) return '';
-      final text = found.innerText.trim();
-      // Bersihkan CDATA
-      return text.replaceAll('<![CDATA[', '').replaceAll(']]>', '').trim();
-    } catch (_) { return ''; }
-  }
-
-  String _stripHtml(String html) =>
-      html.replaceAll(RegExp(r'<[^>]*>'), '')
-          .replaceAll(RegExp(r'\s+'), ' ')
-          .trim();
-
-  String _cleanTitle(String title) =>
-      title.replaceAll('<![CDATA[', '').replaceAll(']]>', '').trim();
 
   Severity _severity(String text) {
     const highKw = [
