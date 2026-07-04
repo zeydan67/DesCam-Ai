@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:archive/archive.dart';
 import 'package:xml/xml.dart';
 import '../models/analysis_result.dart';
+import '../utils/url_helpers.dart';
 import 'analysis_service.dart';
 import 'virustotal_service.dart';
 
@@ -31,12 +32,6 @@ class GeminiAnalysisService implements AnalysisService {
     'gemini-3.1-flash-lite',
     'gemini-flash-latest',
   ];
-
-  bool _isUrl(String? text) {
-    if (text == null) return false;
-    final t = text.trim().toLowerCase();
-    return t.startsWith('http') || t.contains('://') || t.contains('www.');
-  }
 
   bool _isLegalDocument(String? text, String type) {
     if (type == 'Letter') return true;
@@ -85,7 +80,7 @@ class GeminiAnalysisService implements AnalysisService {
     final checker = SafetyPreChecker(vtApiKey: vtApiKey);
 
     // 1. Check URL
-    if (_isUrl(text) && fileBytes == null) {
+    if (UrlHelpers.isUrl(text) && fileBytes == null) {
       try {
         final vtResult = await checker.checkUrl(text!.trim());
         if (vtResult.level == UrlSafetyLevel.danger) {
@@ -203,7 +198,7 @@ class GeminiAnalysisService implements AnalysisService {
 
     final prompt = '''
 Kamu adalah analis keamanan siber dan hukum untuk pengguna Indonesia.
-${_isUrl(text) ? '' : 'Gunakan Google Search untuk verifikasi fakta.'}
+${UrlHelpers.isUrl(text) ? '' : 'Gunakan Google Search untuk verifikasi fakta.'}
 $preCheckNote
 Tipe input: $type
 Input: ${extractedText.isEmpty ? "Tidak ada teks" : extractedText}
@@ -238,7 +233,7 @@ FORMAT — kembalikan HANYA JSON valid:
     }
 
     // Hanya pakai Google Search grounding jika bukan URL (URL sudah pre-check)
-    final useSearch = !_isUrl(text) || preCheckNote.isEmpty;
+    final useSearch = !UrlHelpers.isUrl(text) || preCheckNote.isEmpty;
 
     final body = jsonEncode({
       "contents": [{"parts": parts}],

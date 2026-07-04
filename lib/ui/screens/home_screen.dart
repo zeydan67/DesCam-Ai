@@ -1,6 +1,3 @@
-import 'dart:math' as math;
-import 'dart:ui';
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -8,15 +5,14 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:mime/mime.dart';
-import 'package:flutter/foundation.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_strings.dart';
+import '../../core/utils/url_helpers.dart';
 import '../../providers/language_provider.dart';
 import '../../providers/analysis_provider.dart';
 import '../../providers/settings_provider.dart';
 import '../widgets/trending_threats_list.dart';
 import '../widgets/result_card.dart';
-import '../widgets/glass_card.dart';
 
 class HomeScreen extends StatefulWidget {
   final VoidCallback? onOpenDrawer;
@@ -70,8 +66,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       }
       return 'Letter';
     }
-    final t = text.trim().toLowerCase();
-    if (t.startsWith('http') || t.contains('www.') || t.contains('://')) return 'Link';
+    if (UrlHelpers.isUrl(text)) return 'Link';
     return 'News';
   }
 
@@ -171,130 +166,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         ),
     );
   }
-}
-
-// ════════════════════════════════════════════════════════════════════════════
-// VIDEO BACKGROUND — looping video + dark overlay
-// ════════════════════════════════════════════════════════════════════════════
-class _PremiumBackground extends StatefulWidget {
-  final AnimationController anim;
-  const _PremiumBackground({required this.anim});
-  @override
-  State<_PremiumBackground> createState() => _PremiumBackgroundState();
-}
-
-class _PremiumBackgroundState extends State<_PremiumBackground> {
-  // Untuk Flutter Web: gunakan HtmlElementView via VideoPlayerWeb
-  // Kita pakai pendekatan web-native via HtmlWidget
-  bool _videoError = false;
-
-  @override
-  Widget build(BuildContext ctx) => Stack(fit: StackFit.expand, children: [
-    // ── Video background (Flutter Web via HTML video element) ──────────────
-    if (!_videoError)
-      _WebVideoBackground(onError: () => setState(() => _videoError = true))
-    else
-      // Fallback jika video error
-      Container(decoration: const BoxDecoration(gradient: AppColors.gradientBackground)),
-
-    // ── Dark overlay — biar konten tetap terbaca ───────────────────────────
-    Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter, end: Alignment.bottomCenter,
-          colors: [
-            Colors.black.withOpacity(0.72),
-            Colors.black.withOpacity(0.65),
-            Colors.black.withOpacity(0.78),
-          ],
-        ),
-      ),
-    ),
-
-    // ── Orb accent di atas overlay — tetap ada untuk depth ────────────────
-    AnimatedBuilder(
-      animation: widget.anim,
-      builder: (_, __) {
-        final t = widget.anim.value;
-        return Stack(children: [
-          Positioned(
-            left: -60 + (40 * math.sin(t * math.pi)),
-            top:  -40 + (30 * math.cos(t * math.pi * 0.7)),
-            child: _GlowOrb(size: 280, color: AppColors.vermillion, opacity: 0.06),
-          ),
-          Positioned(
-            right: -60 + (40 * math.cos(t * math.pi * 0.8)),
-            bottom: 60 + (40 * math.sin(t * math.pi * 0.6)),
-            child: _GlowOrb(size: 200, color: AppColors.gold, opacity: 0.04),
-          ),
-          Positioned.fill(child: _GridPattern()),
-        ]);
-      },
-    ),
-  ]);
-}
-
-// ── Flutter Web video via HtmlElementView ─────────────────────────────────
-class _WebVideoBackground extends StatelessWidget {
-  final VoidCallback onError;
-  const _WebVideoBackground({required this.onError});
-
-  @override
-  Widget build(BuildContext ctx) {
-    // Inject video element via HTML interop (Flutter Web only)
-    // ignore: undefined_prefixed_name
-    try {
-      if (kIsWeb) {
-        return HtmlElementView(viewType: 'waspada-bg-video');
-      }
-    } catch (_) {}
-    return Container(color: AppColors.deepNavy);
-  }
-}
-
-class _GlowOrb extends StatelessWidget {
-  final double size;
-  final Color color;
-  final double opacity;
-  const _GlowOrb({required this.size, required this.color, required this.opacity});
-
-  @override
-  Widget build(BuildContext ctx) => Container(
-    width: size, height: size,
-    decoration: BoxDecoration(
-      shape: BoxShape.circle,
-      gradient: RadialGradient(colors: [
-        color.withOpacity(opacity),
-        color.withOpacity(opacity * 0.3),
-        Colors.transparent,
-      ], stops: const [0.0, 0.5, 1.0]),
-    ),
-  );
-}
-
-class _GridPattern extends StatelessWidget {
-  @override
-  Widget build(BuildContext ctx) => CustomPaint(
-    painter: _GridPainter(),
-  );
-}
-
-class _GridPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = const Color(0x06FAF8F5)
-      ..strokeWidth = 0.5;
-    const spacing = 44.0;
-    for (double x = 0; x < size.width; x += spacing) {
-      canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
-    }
-    for (double y = 0; y < size.height; y += spacing) {
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
-    }
-  }
-  @override
-  bool shouldRepaint(_) => false;
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -478,11 +349,9 @@ class _InputPanel extends StatelessWidget {
     required this.onAnalyze, required this.onTextChanged, required this.onClear,
   });
 
-  // Deteksi tipe input
   _InputMode _detectMode() {
     if (selectedFileBytes != null) return _InputMode.document;
-    final t = ctrl.text.trim().toLowerCase();
-    if (t.startsWith('http') || t.contains('www.') || t.contains('://')) return _InputMode.link;
+    if (UrlHelpers.isUrl(ctrl.text)) return _InputMode.link;
     return _InputMode.text;
   }
 
