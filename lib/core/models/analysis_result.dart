@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 enum ThreatLevel { safe, suspicious, danger }
 
 // ─────────────────────────────────────────────────────────────
@@ -72,7 +74,9 @@ class AnalysisResult {
       try {
         legal = LegalAnalysis.fromJson(
             j['legal_analysis'] as Map<String, dynamic>);
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('[DesCam] Failed to parse legal_analysis: $e');
+      }
     }
 
     return AnalysisResult(
