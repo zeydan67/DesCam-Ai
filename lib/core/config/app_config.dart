@@ -3,17 +3,19 @@ class AppConfig {
   /// API KEY BAWAAN (Default)
   /// ─────────────────────────────────────────────────────────────────────────
   ///
-  /// Cara isi:
-  /// 1. Buka https://aistudio.google.com/app/apikey
-  /// 2. Klik "Create API Key"
-  /// 3. Copy key yang dimulai dengan "AIza..."
-  /// 4. Paste di bawah ini (ganti 'ISI_API_KEY_DEFAULT_ANDA_DI_SINI')
+  /// JANGAN pernah menuliskan API key langsung (hardcode) di file ini. File ini
+  /// ikut ter-commit ke repository publik, dan pada Flutter Web key apa pun yang
+  /// disematkan akan ikut ter-bundle ke JavaScript sehingga bisa diekstrak siapa
+  /// saja.
   ///
-  /// Contoh:
-  ///   static const String defaultGeminiApiKey = 'AIzaSyXXXXXXXXXXXXXXXXXXXXXXXX';
+  /// Key default (opsional) hanya disuntikkan saat build lewat compile-time
+  /// environment variable, contoh:
   ///
-  /// ⚠️ JANGAN share file ini ke publik / GitHub jika sudah diisi key asli!
-  ///    Gunakan .gitignore atau environment variable untuk produksi.
+  ///   flutter build web --release --dart-define=GEMINI_API_KEY=AIza...
+  ///
+  /// Jika tidak diisi, aplikasi akan meminta pengguna memasukkan key mereka
+  /// sendiri melalui menu ⚙️ Pengaturan.
   /// ─────────────────────────────────────────────────────────────────────────
-  static const String defaultGeminiApiKey = 'AIzaSyCbT6-Y2tdbOQC1rAsbTn0y0BZnQnaAzMQ';
+  static const String defaultGeminiApiKey =
+      String.fromEnvironment('GEMINI_API_KEY', defaultValue: '');
 }
